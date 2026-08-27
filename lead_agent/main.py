@@ -127,9 +127,9 @@ def check_gameplay_agent():
     return False, None
 
 # ===================== 发送方案给玩法策划 =====================
-def summarize_md(md_text: str) -> str:
+def summarize_md(md_text: str, show_sections: bool = True) -> str:
     """提取md方案的简短摘要（纯本地，无LLM调用）：
-    文档标题 + 游戏概述（或首个章节）首句 + 章节列表。
+    文档标题 + 游戏概述（或首个章节）首句 + 章节列表（可选）。
     兼容 # / ## / ### 任意标题层级。"""
     lines = md_text.strip().split("\n")
     doc_title = ""
@@ -162,7 +162,7 @@ def summarize_md(md_text: str) -> str:
         summary.append(f"📄 {doc_title}")
     if overview:
         summary.append(f"💡 {overview}")
-    if sections:
+    if show_sections and sections:
         summary.append("📑 " + " / ".join(sections[:8]))
     return "\n".join(summary) if summary else md_text[:100]
 
@@ -266,7 +266,7 @@ def main():
     print("主策划方案摘要")
     print("=" * 60)
     
-    print(summarize_md(output_content))
+    print(summarize_md(output_content, show_sections=False))
     
     # 发送方案给玩法策划
     if gameplay_online:

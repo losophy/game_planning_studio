@@ -182,8 +182,7 @@ def receive_plan():
         plan_content = data.get('plan_content', '')
         plan_file = data.get('plan_file', '')
         
-        print("\n" + "=" * 60)
-        print("收到主策划方案！")
+        print("\n收到主策划的方案")
         print("=" * 60)
         
         # 如果提供了文件路径，从文件读取
@@ -198,11 +197,6 @@ def receive_plan():
         
         if not plan_content:
             return jsonify({"error": "未收到方案内容"}), 400
-        
-        print("\n收到的主策划方案概要:")
-        print("-" * 60)
-        print(summarize_md(plan_content))
-        print("-" * 60)
         
         # 运行玩法策划Agent
         print("\n正在分析玩法设计...")
