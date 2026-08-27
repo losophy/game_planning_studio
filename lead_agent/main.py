@@ -169,13 +169,26 @@ def main():
     print("=" * 60)
     print("本主策划已到工位，听候老板差遣")
     print("=" * 60)
+    print()
+    print("我的职责：")
+    print("1. 需求分析：从老板的话里提炼游戏核心要素")
+    print("2. 方向把控：定下游戏类型、目标用户和核心卖点")
+    print("3. 框架搭建：设计整体游戏框架和系统结构")
+    print("4. 决策建议：给出明确的方向性建议")
+    print()
+    print("老板给个想法，我来把大方向定下来，再交给玩法策划细化。")
+    print()
+    print("按 Ctrl+C 下班")
+    print("=" * 60)
+    print()
     
     # 检查玩法策划Agent
-    print("\n正在检查玩法策划是否在工位...")
+    print("正在检查玩法策划是否在工位...")
     is_online, info = check_gameplay_agent()
     
     if is_online:
         print("✅ 玩法策划已在工位")
+        print(f"   工位地址: {info.get('uri', GAMEPLAY_URI)}")
         gameplay_online = True
     else:
         print("⚠️ 玩法策划还没到工位")
