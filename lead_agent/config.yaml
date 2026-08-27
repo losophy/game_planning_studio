@@ -2,12 +2,12 @@
 
 # 玩法策划Agent配置（需要填写实际的URI）
 lead_agent:
-  # 玩法策划Agent的URI（用于发送方案）
-  # 如果是同一台电脑: http://localhost:8080/receive_plan
-  # 如果是不同电脑: http://192.168.1.100:8080/receive_plan
-  gameplay_uri: "http://localhost:8080/receive_plan"
-  # 玩法策划Agent的健康检查URI（显式配置，避免字符串替换推导）
-  gameplay_health_uri: "http://localhost:8080/health"
+  # 玩法策划Agent的A2A端点URI（JSON-RPC，POST到根路径）
+  # 如果是同一台电脑: http://localhost:8080/
+  # 如果是不同电脑: http://192.168.1.100:8080/
+  gameplay_uri: "http://localhost:8080/"
+  # 玩法策划Agent的Agent Card发现URI（A2A标准，用于能力发现/健康探测）
+  gameplay_card_uri: "http://localhost:8080/.well-known/agent.json"
 
 # 输出配置
 output:

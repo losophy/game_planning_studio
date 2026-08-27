@@ -1,6 +1,6 @@
 # AI游戏策划工作室
 
-基于 LangChain + Flask 的双 Agent 协作系统：**主策划Agent**（`lead_agent/`）从"老板一句话"产出主策划方案，通过 HTTP（简化版A2A）把方案交给 **玩法策划Agent**（`gameplay_agent/`），产出玩法策划方案。支持同机与跨电脑运行。
+基于 LangChain + Flask 的双 Agent 协作系统：**主策划Agent**（`lead_agent/`）从"老板一句话"产出主策划方案，通过**标准A2A协议**（Agent Card 发现 + JSON-RPC `tasks/send` 提交任务）把方案交给 **玩法策划Agent**（`gameplay_agent/`），产出玩法策划方案。支持同机与跨电脑运行。
 
 ## 目录结构
 
@@ -84,7 +84,7 @@ uv run python main.py
 ### 4. 跨电脑运行
 
 1. 电脑B（玩法策划）：`ipconfig` 查看本机IP，把 `gameplay_agent/config.yaml` 中 `uri` 改为该IP，启动。
-2. 电脑A（主策划）：把 `lead_agent/config.yaml` 中 `gameplay_uri` / `gameplay_health_uri` 改为电脑B的IP，启动。
+2. 电脑A（主策划）：把 `lead_agent/config.yaml` 中 `gameplay_uri` / `gameplay_card_uri` 改为电脑B的IP，启动。
 3. 注意防火墙放行8080端口（见方案第9章）。
 
 ## 方案文档

@@ -1,6 +1,7 @@
 # lead_agent/main.py
 
 import os
+import uuid
 import yaml
 import requests
 from pathlib import Path
@@ -28,8 +29,8 @@ def load_config():
             return yaml.safe_load(f)
     return {
         "lead_agent": {
-            "gameplay_uri": "http://localhost:8080/receive_plan",
-            "gameplay_health_uri": "http://localhost:8080/health"
+            "gameplay_uri": "http://localhost:8080/",
+            "gameplay_card_uri": "http://localhost:8080/.well-known/agent.json"
         },
         "output": {"dir": "./output", "lead_plan": "主策划方案.md", "gameplay_plan": "玩法策划方案.md"}
     }
@@ -37,9 +38,9 @@ def load_config():
 config = load_config()
 OUTPUT_DIR = BASE_DIR / config["output"]["dir"]
 GAMEPLAY_URI = config["lead_agent"]["gameplay_uri"]
-GAMEPLAY_HEALTH_URI = config["lead_agent"].get(
-    "gameplay_health_uri",
-    GAMEPLAY_URI.replace("/receive_plan", "/health")
+GAMEPLAY_CARD_URI = config["lead_agent"].get(
+    "gameplay_card_uri",
+    GAMEPLAY_URI.rstrip("/") + "/.well-known/agent.json"
 )
 
 # ===================== 模型初始化 =====================
@@ -116,12 +117,16 @@ lead_designer = create_agent(
 
 # ===================== 检查玩法策划Agent =====================
 def check_gameplay_agent():
-    """检查玩法策划Agent是否在线"""
+    """读取玩法策划的Agent Card，确认其在线并返回能力信息（A2A发现）"""
     try:
-        # 使用配置中的健康检查URI（不再用字符串替换推导）
-        response = requests.get(GAMEPLAY_HEALTH_URI, timeout=5)
+        response = requests.get(GAMEPLAY_CARD_URI, timeout=5)
         if response.status_code == 200:
-            return True, response.json()
+            card = response.json()
+            return True, {
+                "name": card.get("name", "未知"),
+                "description": card.get("description", ""),
+                "url": card.get("url", GAMEPLAY_URI),
+            }
     except Exception:
         pass
     return False, None
@@ -167,34 +172,54 @@ def summarize_md(md_text: str, show_sections: bool = True) -> str:
     return "\n".join(summary) if summary else md_text[:100]
 
 def send_plan_to_gameplay(plan_content: str, plan_file: str):
-    """通过HTTP接口发送方案给玩法策划Agent"""
+    """通过标准A2A协议（JSON-RPC tasks/send）发送方案给玩法策划Agent"""
+    task_id = str(uuid.uuid4())
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tasks/send",
+        "params": {
+            "id": task_id,
+            "message": {
+                "role": "user",
+                "parts": [
+                    {"kind": "text", "text": f"基于以下主策划方案，进行深入的玩法设计：\n\n{plan_content}"}
+                ]
+            }
+        }
+    }
     try:
-        response = requests.post(
-            GAMEPLAY_URI,
-            json={
-                "plan_content": plan_content,
-                "plan_file": plan_file
-            },
-            timeout=300  # DeepSeek生成长文档可能超过60秒，放宽超时
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
+        response = requests.post(GAMEPLAY_URI, json=payload, timeout=300)
+        data = response.json()
+
+        if data.get("error"):
+            print(f"\n❌ A2A调用失败: {data['error'].get('message', data['error'])}")
+            return False
+
+        task = data.get("result") or {}
+        state = (task.get("status") or {}).get("state", "unknown")
+
+        if state == "completed":
             print(f"\n✅ 方案已递交给玩法策划")
-            print(f"   玩法策划方案会放在: {result.get('output_file', '未知')}")
-            
-            # 如果返回了方案内容，保存到本地
-            if "plan_content" in result:
-                gameplay_output = OUTPUT_DIR / config["output"]["gameplay_plan"]
-                with open(gameplay_output, 'w', encoding='utf-8') as f:
-                    f.write(result["plan_content"])
-                print(f"   玩法策划的方案已同步带回一份")
-            
+            print(f"   任务ID: {task_id}")
+
+            # 从 Artifact 中取玩法策划方案全文
+            artifacts = task.get("artifacts") or []
+            for artifact in artifacts:
+                for part in artifact.get("parts", []):
+                    if part.get("kind") == "text" and part.get("text"):
+                        gameplay_output = OUTPUT_DIR / config["output"]["gameplay_plan"]
+                        with open(gameplay_output, 'w', encoding='utf-8') as f:
+                            f.write(part["text"])
+                        print(f"   玩法策划的方案已同步带回一份")
+                        return True
             return True
         else:
-            print(f"\n❌ 递交方案失败: {response.status_code}")
+            msg = ((task.get("status") or {}).get("message") or {})
+            detail = "".join(p.get("text", "") for p in msg.get("parts", []))
+            print(f"\n❌ 玩法策划任务未完成: {state} {detail}")
             return False
-            
+
     except requests.exceptions.ConnectionError:
         print(f"\n❌ 找不到玩法策划: {GAMEPLAY_URI}")
         print("   可能还没到工位，稍后再试")
@@ -227,7 +252,7 @@ def main():
     
     if is_online:
         print("✅ 玩法策划已在工位")
-        print(f"   工位地址: {info.get('uri', GAMEPLAY_URI)}")
+        print(f"   工位地址: {info.get('url', GAMEPLAY_URI)}")
         gameplay_online = True
     else:
         print("⚠️ 玩法策划还没到工位")

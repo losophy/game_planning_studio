@@ -8,18 +8,18 @@
 
 ### 1.1 核心理念
 
-基于AI智能体技术栈（LangChain + LangGraph），构建一个从"老板一句话"到"完整策划文档包"的多智能体协作系统。采用**两个独立Agent + 简化版A2A（自定义HTTP接口）**的简洁架构，支持跨电脑协作。
+基于AI智能体技术栈（LangChain + LangGraph），构建一个从"老板一句话"到"完整策划文档包"的多智能体协作系统。采用**两个独立Agent + 标准A2A协议（JSON-RPC）**的简洁架构，支持跨电脑协作。
 
-> **术语说明**：本方案的"简化版A2A"指基于已知URI的自定义HTTP通信（POST JSON收发方案），未实现标准A2A协议（Agent Card发现、Task状态跟踪等，见资料库第26章）。它足以满足两个固定Agent的跨电脑协作场景；如需对接异构Agent系统，再升级为标准A2A。
+> **术语说明**：本方案已实现**标准A2A协议**（Agent-to-Agent，见资料库第26章）：玩法策划Agent通过 `/.well-known/agent.json` 暴露Agent Card（能力发现），主策划通过JSON-RPC 2.0调用 `initialize` / `tasks/send` / `tasks/get` 提交任务、跟踪状态、取回结果（Task + Artifact）。它是A2A规范的核心流程，可对接其他遵循A2A的Agent系统。
 
 ### 1.2 架构特点
 
 | 特点 | 说明 |
 |------|------|
 | **独立进程** | 两个Agent各自独立启动（uv run） |
-| **已知URI** | 通过配置文件指定玩法策划Agent的URI |
-| **跨电脑** | 支持不同电脑之间的HTTP通信（简化版A2A） |
-| **HTTP服务** | 玩法策划提供HTTP接口，主策划调用发送 |
+| **标准A2A** | 玩法策划暴露Agent Card，主策划经JSON-RPC提交Task并取回Artifact |
+| **跨电脑** | 支持不同电脑之间的HTTP通信（标准A2A） |
+| **HTTP服务** | 玩法策划提供A2A JSON-RPC端点，主策划作为客户端调用 |
 | **用户启动** | 两个Agent都由用户手动启动 |
 | **md输出** | 方案输出为Markdown格式 |
 
@@ -64,10 +64,10 @@
 │  ┌─────────────────────┐           ┌─────────────────────┐ │
 │  │  主策划Agent进程    │           │  玩法策划Agent进程  │ │
 │  │                     │           │                     │ │
-│  │  用户输入           │           │  启动HTTP服务       │ │
-│  │      ↓              │   HTTP    │      ↓              │ │
-│  │  需求分析           │ ───────→  │  等待接收方案       │ │
-│  │      ↓              │           │      ↓              │ │
+│  │  用户输入           │           │  启动A2A服务        │ │
+│  │      ↓              │   A2A    │      ↓              │ │
+│  │  需求分析           │ ───────→  │  等待接收任务       │ │
+│  │      ↓              │ JSON-RPC │      ↓              │ │
 │  │  输出方案.md        │           │  分析玩法设计       │ │
 │  │                     │           │      ↓              │ │
 │  │                     │           │  输出玩法方案.md    │ │
@@ -75,8 +75,11 @@
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │                    通信方式                          │   │
-│  │  主策划Agent通过配置的URI调用玩法策划Agent           │   │
-│  │  URI示例: http://192.168.1.100:8080/receive_plan    │   │
+│  │  标准A2A协议（JSON-RPC 2.0）                        │   │
+│  │  发现: GET /.well-known/agent.json (Agent Card)     │   │
+│  │  提交: POST / tasks/send  → Task → Artifact         │   │
+│  │  查询: POST / tasks/get                             │   │
+│  │  URI示例: http://192.168.1.100:8080/                │   │
 │  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -129,12 +132,12 @@ game_planning_studio/
 
 # 玩法策划Agent配置（需要填写实际的URI）
 lead_agent:
-  # 玩法策划Agent的URI（用于发送方案）
-  # 如果是同一台电脑: http://localhost:8080/receive_plan
-  # 如果是不同电脑: http://192.168.1.100:8080/receive_plan
-  gameplay_uri: "http://localhost:8080/receive_plan"
-  # 玩法策划Agent的健康检查URI（显式配置，避免字符串替换推导）
-  gameplay_health_uri: "http://localhost:8080/health"
+  # 玩法策划Agent的A2A端点URI（JSON-RPC，POST到根路径）
+  # 如果是同一台电脑: http://localhost:8080/
+  # 如果是不同电脑: http://192.168.1.100:8080/
+  gameplay_uri: "http://localhost:8080/"
+  # 玩法策划Agent的Agent Card发现URI（A2A标准，用于能力发现/在线探测）
+  gameplay_card_uri: "http://localhost:8080/.well-known/agent.json"
 
 # 输出配置
 output:
@@ -180,8 +183,8 @@ output:
 |--------|------|
 | Agent创建 | `create_agent`（LangChain V1.x），system_prompt 注入需求分析与项目规划两个Skill |
 | 模型接入 | `ChatOpenAI` + DeepSeek（`base_url` + `api_key` + `model`） |
-| 健康检查 | 启动时探测玩法策划 `gameplay_health_uri`，离线则只出主策划方案 |
-| 方案下发 | 通过 `gameplay_uri` POST 主策划方案，`timeout=300` |
+| 能力发现 | 启动时读取玩法策划 Agent Card（`gameplay_card_uri`），离线则只出主策划方案 |
+| 方案下发 | 通过 `gameplay_uri` 发 A2A JSON-RPC `tasks/send`，`timeout=300` |
 | 输出提取 | 取 `result["messages"][-1]`（最后一条AIMessage），避免取到用户输入 |
 | 输出保存 | Markdown 写入本地 `output/` 目录 |
 
@@ -208,18 +211,35 @@ output:
 | 设计点 | 说明 |
 |--------|------|
 | Agent创建 | `create_agent`，system_prompt 注入需求分析、核心循环、战斗系统、数值平衡四个Skill |
-| HTTP服务 | Flask，`threaded=True` 支持并发；`host='0.0.0.0'` 支持跨电脑访问 |
-| 健康检查 | `GET /health` 返回服务状态与URI |
-| 方案接收 | `POST /receive_plan` 接收主策划方案，跨电脑时优先用 HTTP 传输内容 |
+| A2A服务 | Flask 实现 JSON-RPC 2.0 端点（`/`），`threaded=True` 支持并发；`host='0.0.0.0'` 支持跨电脑访问 |
+| Agent Card | `/.well-known/agent.json` 暴露能力名片（name/version/skills/capabilities） |
+| 任务接收 | `tasks/send` 接收A2A Task（Message parts 提取主策划方案），同步执行玩法策划 |
+| 任务跟踪 | `tasks/get` 按 task_id 查询 Task 状态（内存 TASK_STORE） |
 | 输出提取 | 同主策划，取 `result["messages"][-1]` |
-| 结果回传 | 返回 `plan_content`，主策划可同步保存到本地 |
+| 结果回传 | Task 的 Artifact 携带完整方案文本，主策划可同步保存到本地 |
 
-### 5.3 HTTP接口
+### 5.3 A2A接口（JSON-RPC 2.0）
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| `/health` | GET | 健康检查，返回 `status/agent/uri` |
-| `/receive_plan` | POST | 接收主策划方案，返回 `status/output_file/plan_content` |
+| `/.well-known/agent.json` | GET | Agent Card 发现：返回 name/description/url/version/skills/capabilities |
+| `/` | POST | JSON-RPC 端点：`initialize`（握手）/ `tasks/send`（提交任务）/ `tasks/get`（查询任务） |
+| `/health` | GET | 健康检查（兼容保留），返回 `status/agent/uri` |
+
+A2A 请求/响应示例：
+
+```json
+// 主策划 → 玩法策划：提交任务
+{"jsonrpc": "2.0", "id": 1, "method": "tasks/send",
+ "params": {"id": "task-uuid", "message": {"role": "user",
+   "parts": [{"kind": "text", "text": "基于以下主策划方案...：\\n\\n# 主策划方案..."}]}}}
+
+// 玩法策划 → 主策划：返回 Task（completed + Artifact）
+{"jsonrpc": "2.0", "id": 1,
+ "result": {"id": "task-uuid",
+   "status": {"state": "completed", "message": {"role": "agent", "parts": [{"kind": "text", "text": "玩法策划方案已生成"}]}},
+   "artifacts": [{"name": "玩法策划方案", "parts": [{"kind": "text", "text": "### 核心循环..."}]}]}}
+```
 
 ---
 
@@ -475,10 +495,10 @@ gameplay_agent:
 # 2. 配置主策划Agent
 # lead_agent/config.yaml
 lead_agent:
-  gameplay_uri: "http://localhost:8080/receive_plan"
-  gameplay_health_uri: "http://localhost:8080/health"
+  gameplay_uri: "http://localhost:8080/"
+  gameplay_card_uri: "http://localhost:8080/.well-known/agent.json"
 
-# 3. 启动玩法策划Agent（先启动，它要监听HTTP端口）
+# 3. 启动玩法策划Agent（先启动，它要监听A2A端口）
 uv run python gameplay_agent/main.py
 
 # 4. 启动主策划Agent
@@ -506,8 +526,8 @@ uv run python main.py
 # 1. 配置主策划Agent
 # lead_agent/config.yaml
 lead_agent:
-  gameplay_uri: "http://192.168.1.100:8080/receive_plan"  # 电脑B的IP
-  gameplay_health_uri: "http://192.168.1.100:8080/health"  # 电脑B的IP
+  gameplay_uri: "http://192.168.1.100:8080/"  # 电脑B的IP（A2A端点）
+  gameplay_card_uri: "http://192.168.1.100:8080/.well-known/agent.json"  # 电脑B的IP
 
 # 2. 启动主策划Agent
 uv run python main.py
@@ -517,46 +537,48 @@ uv run python main.py
 
 ```
 ============================================================
-AI游戏策划工作室 - 主策划Agent
+本主策划已到工位，听候老板差遣
 ============================================================
 
-配置信息:
-  玩法策划URI: http://192.168.1.100:8080/receive_plan
-  输出目录: ./output
+我的职责：
+1. 需求分析：从老板的话里提炼游戏核心要素
+2. 方向把控：定下游戏类型、目标用户和核心卖点
+3. 框架搭建：设计整体游戏框架和系统结构
+4. 决策建议：给出明确的方向性建议
 
-正在检查玩法策划Agent状态...
-✅ 玩法策划Agent已在线
-   URI: http://192.168.1.100:8080
+老板给个想法，我来把大方向定下来，再交给玩法策划细化。
 
-请输入你的游戏想法: 我想做一个二次元风格的卡牌RPG手游
+按 Ctrl+C 下班
+============================================================
+
+正在检查玩法策划是否在工位...
+✅ 玩法策划已在工位
+   工位地址: http://localhost:8080
+
+老板，你想做什么游戏: 我想做一个二次元风格的卡牌RPG手游
 
 需求: 我想做一个二次元风格的卡牌RPG手游
 ============================================================
 正在分析需求...
 ============================================================
 
-✅ 主策划方案已保存到: ./output/主策划方案.md
+✅ 主策划方案已完成，存放在: ./output/主策划方案.md
 
 ============================================================
 主策划方案摘要
 ============================================================
-# 游戏设计文档 - 《星渊录》
-
-## 游戏概述
-一款以星际幻想为背景的二次元卡牌RPG手游
-
-## 核心定位
-- 类型：卡牌RPG
-- 平台：移动端（iOS/Android）
+📄 游戏设计文档 - 《星渊录》
+💡 一款以星际幻想为背景的二次元卡牌RPG手游
 
 ============================================================
-正在发送方案给玩法策划Agent...
+正在把方案递交给玩法策划...
 ============================================================
 
-✅ 已成功发送方案给玩法策划Agent
-   玩法策划方案将保存到: ./output/玩法策划方案.md
+✅ 方案已递交给玩法策划（A2A tasks/send）
+   任务ID: 494f678a-3b0b-454d-91f0-1eb727a1657b
+   玩法策划的方案已同步带回一份
 
-✅ 主策划Agent工作完成！
+✅ 主策划交稿完成！
 ```
 
 ---
@@ -651,7 +673,7 @@ sudo pfctl -e
 | Agent创建 | `create_agent` | 21章 |
 | 模型接入 | `ChatOpenAI` | 11章 |
 | Skills | `SKILL.md` | 27章 |
-| A2A通信 | HTTP (Flask) + 已知URI（简化版A2A） | 26章（概念参考） |
+| A2A通信 | 标准A2A协议（JSON-RPC 2.0 + Agent Card） | 26章 |
 | 输出格式 | Markdown | - |
 | 依赖管理 | uv（pyproject.toml + uv.lock） | - |
 
@@ -664,19 +686,19 @@ sudo pfctl -e
 | 特点 | 说明 |
 |------|------|
 | **独立进程** | 两个Agent各自独立启动（uv run） |
-| **已知URI** | 通过配置文件指定玩法策划Agent的URI |
-| **跨电脑** | 支持不同电脑之间的HTTP通信（简化版A2A） |
-| **HTTP服务** | 玩法策划提供HTTP接口，主策划调用发送 |
+| **标准A2A** | 玩法策划暴露Agent Card，主策划经JSON-RPC提交Task并取回Artifact |
+| **跨电脑** | 支持不同电脑之间的HTTP通信（标准A2A） |
+| **HTTP服务** | 玩法策划提供A2A JSON-RPC端点，主策划作为客户端调用 |
 | **用户启动** | 两个Agent都由用户手动启动 |
 | **md输出** | 方案输出为Markdown格式 |
 
 ### 11.2 使用流程
 
 ```
-1. 配置玩法策划Agent的URI（config.yaml）
-2. 配置主策划Agent的玩法策划URI（config.yaml）
-3. 启动玩法策划Agent（uv run，启动HTTP服务，等待）
-4. 启动主策划Agent（uv run，输入需求，输出方案，调用玩法策划）
+1. 配置玩法策划Agent的URI（config.yaml，A2A端点根路径）
+2. 配置主策划Agent的玩法策划URI + Agent Card URI（config.yaml）
+3. 启动玩法策划Agent（uv run，启动A2A服务，等待）
+4. 启动主策划Agent（uv run，输入需求，输出方案，通过A2A调用玩法策划）
 5. 查看 output/ 目录下的两个md文件
 ```
 

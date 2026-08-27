@@ -1,6 +1,7 @@
 # gameplay_agent/main.py
 
 import os
+import uuid
 import logging
 import yaml
 from pathlib import Path
@@ -165,6 +166,175 @@ logging.getLogger('flask.cli').setLevel(logging.ERROR)
 import flask.cli
 flask.cli.show_server_banner = lambda *args, **kwargs: None
 
+# ===================== A2A 协议（标准 Agent-to-Agent） =====================
+# 任务存储：task_id -> Task 对象（内存版，重启即清）
+TASK_STORE = {}
+
+# 基础URI：Agent Card 中声明的服务地址
+AGENT_URL = config["gameplay_agent"]["uri"]
+
+def agent_card() -> dict:
+    """A2A Agent Card：能力名片，供调用方发现与握手"""
+    return {
+        "name": "gameplay_designer",
+        "description": "玩法策划Agent：基于主策划方案进行深入的核心玩法设计",
+        "url": AGENT_URL,
+        "version": "1.0.0",
+        "capabilities": {
+            "streaming": False,
+            "pushNotifications": False
+        },
+        "skills": [
+            {
+                "id": "gameplay_design",
+                "name": "玩法策划设计",
+                "description": "输入主策划方案（Markdown），输出玩法策划方案（核心循环/战斗机制/成长系统/数值框架）",
+                "tags": ["game-design", "gameplay", "game-planning"],
+                "examples": ["基于主策划方案，进行深入的玩法设计"]
+            }
+        ],
+        "defaultInputModes": ["text"],
+        "defaultOutputModes": ["text"],
+        "defaultSkillId": "gameplay_design"
+    }
+
+def make_task(task_id: str, state: str, message_text: str,
+              artifacts: list | None = None) -> dict:
+    """构造 A2A Task 对象"""
+    return {
+        "id": task_id,
+        "status": {
+            "state": state,  # submitted / working / completed / failed / canceled
+            "message": {"role": "agent", "parts": [{"kind": "text", "text": message_text}]},
+            "timestamp": __import__("datetime").datetime.now().isoformat()
+        },
+        "artifacts": artifacts or [],
+        "messages": []
+    }
+
+def handle_tasks_send(params: dict) -> dict:
+    """tasks/send：接收任务并执行玩法策划，返回 Task"""
+    task_id = params.get("id") or str(uuid.uuid4())
+    message = params.get("message") or {}
+
+    # 从 A2A Message 的 parts 中提取文本内容
+    plan_content = ""
+    for part in message.get("parts", []):
+        if part.get("kind") == "text" and part.get("text"):
+            plan_content = part["text"]
+            break
+
+    if not plan_content:
+        raise ValueError("未收到方案内容（message.parts 缺少 text part）")
+
+    print("\n收到主策划的方案")
+    print("=" * 60)
+
+    # 先登记为 working
+    TASK_STORE[task_id] = make_task(task_id, "working", "正在分析玩法设计...")
+    try:
+        # 运行玩法策划Agent
+        print("\n正在分析玩法设计...")
+        result = gameplay_designer.invoke({
+            "messages": [{"role": "user", "content": f"基于以下主策划方案，进行深入的玩法设计：\n\n{plan_content}"}]
+        })
+
+        # 提取输出（取最后一条消息，即Agent的最终回答，不要取第一条=用户输入）
+        output_content = result["messages"][-1].content
+
+        # 保存到文件
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        output_file = OUTPUT_DIR / config["output"]["gameplay_plan"]
+
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(output_content)
+
+        print(f"\n✅ 玩法策划方案已保存到: {output_file}")
+
+        # 显示方案摘要
+        print("\n" + "=" * 60)
+        print("玩法策划方案摘要")
+        print("=" * 60)
+        print(summarize_md(output_content))
+        print("\n✅ 玩法策划Agent工作完成！")
+
+        # 构造完成状态的 Task，含 Artifact
+        task = make_task(task_id, "completed", "玩法策划方案已生成")
+        task["artifacts"] = [{
+            "name": "玩法策划方案",
+            "description": "玩法策划Agent产出的完整方案（Markdown）",
+            "parts": [{"kind": "text", "text": output_content}],
+            "metadata": {"output_file": str(output_file)}
+        }]
+        TASK_STORE[task_id] = task
+        return task
+
+    except Exception as e:
+        print(f"\n❌ 处理方案时出错: {e}")
+        task = make_task(task_id, "failed", f"处理方案时出错: {e}")
+        TASK_STORE[task_id] = task
+        return task
+
+def handle_tasks_get(params: dict) -> dict:
+    """tasks/get：按 task_id 查询任务状态"""
+    task_id = params.get("id")
+    if not task_id:
+        raise ValueError("缺少任务 id")
+    task = TASK_STORE.get(task_id)
+    if not task:
+        raise KeyError(f"任务不存在: {task_id}")
+    return task
+
+# JSON-RPC 方法分发
+JSONRPC_METHODS = {
+    "initialize": lambda params: agent_card(),
+    "tasks/send": handle_tasks_send,
+    "tasks/get": handle_tasks_get,
+}
+
+@app.route('/.well-known/agent.json', methods=['GET'])
+def well_known_agent():
+    """A2A Agent Card 发现端点"""
+    return jsonify(agent_card())
+
+@app.route('/', methods=['POST'])
+def a2a_endpoint():
+    """A2A JSON-RPC 2.0 端点"""
+    try:
+        data = request.get_json(silent=True) or {}
+        method = data.get("method")
+        params = data.get("params") or {}
+        rpc_id = data.get("id")
+
+        if method not in JSONRPC_METHODS:
+            return jsonify({
+                "jsonrpc": "2.0",
+                "id": rpc_id,
+                "error": {"code": -32601, "message": f"Method not found: {method}"}
+            }), 200
+
+        result = JSONRPC_METHODS[method](params)
+        return jsonify({"jsonrpc": "2.0", "id": rpc_id, "result": result})
+
+    except ValueError as e:
+        return jsonify({
+            "jsonrpc": "2.0",
+            "id": data.get("id") if 'data' in dir() else None,
+            "error": {"code": -32602, "message": str(e)}
+        }), 200
+    except KeyError as e:
+        return jsonify({
+            "jsonrpc": "2.0",
+            "id": data.get("id") if 'data' in dir() else None,
+            "error": {"code": -32004, "message": str(e)}
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "jsonrpc": "2.0",
+            "id": data.get("id") if 'data' in dir() else None,
+            "error": {"code": -32603, "message": f"Internal error: {e}"}
+        }), 200
+
 @app.route('/health', methods=['GET'])
 def health():
     """健康检查接口"""
@@ -173,68 +343,6 @@ def health():
         "agent": "gameplay_designer",
         "uri": config["gameplay_agent"]["uri"]
     })
-
-@app.route('/receive_plan', methods=['POST'])
-def receive_plan():
-    """接收主策划方案的接口"""
-    try:
-        data = request.json
-        plan_content = data.get('plan_content', '')
-        plan_file = data.get('plan_file', '')
-        
-        print("\n收到主策划的方案")
-        print("=" * 60)
-        
-        # 如果提供了文件路径，从文件读取
-        if plan_file:
-            # 支持跨电脑：如果文件路径不存在，使用plan_content
-            if Path(plan_file).exists():
-                with open(plan_file, 'r', encoding='utf-8') as f:
-                    plan_content = f.read()
-                print(f"从本地文件读取方案: {plan_file}")
-            else:
-                print("使用HTTP传输的方案内容")
-        
-        if not plan_content:
-            return jsonify({"error": "未收到方案内容"}), 400
-        
-        # 运行玩法策划Agent
-        print("\n正在分析玩法设计...")
-        result = gameplay_designer.invoke({
-            "messages": [{"role": "user", "content": f"基于以下主策划方案，进行深入的玩法设计：\n\n{plan_content}"}]
-        })
-        
-        # 提取输出（取最后一条消息，即Agent的最终回答，不要取第一条=用户输入）
-        output_content = result["messages"][-1].content
-        
-        # 保存到文件
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        output_file = OUTPUT_DIR / config["output"]["gameplay_plan"]
-        
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(output_content)
-        
-        print(f"\n✅ 玩法策划方案已保存到: {output_file}")
-        
-        # 显示方案摘要
-        print("\n" + "=" * 60)
-        print("玩法策划方案摘要")
-        print("=" * 60)
-        
-        print(summarize_md(output_content))
-        
-        print("\n✅ 玩法策划Agent工作完成！")
-        
-        return jsonify({
-            "status": "success",
-            "message": "玩法策划方案已生成",
-            "output_file": str(output_file),
-            "plan_content": output_content  # 返回方案内容供主策划显示
-        })
-        
-    except Exception as e:
-        print(f"\n❌ 处理方案时出错: {e}")
-        return jsonify({"error": str(e)}), 500
 
 def run_flask():
     """运行Flask服务"""
