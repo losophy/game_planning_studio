@@ -115,6 +115,46 @@ gameplay_designer = create_agent(
     system_prompt=GAMEPLAY_DESIGNER_PROMPT,
 )
 
+# ===================== 方案摘要 =====================
+def summarize_md(md_text: str) -> str:
+    """提取md方案的简短摘要（纯本地，无LLM调用）：
+    文档标题 + 游戏概述（或首个章节）首句 + 章节列表。
+    兼容 # / ## / ### 任意标题层级。"""
+    lines = md_text.strip().split("\n")
+    doc_title = ""
+    sections = []
+    overview = ""
+    current = ""            # 当前章节名
+    seen_overview = False   # 是否出现过"游戏概述"章节
+    first_section = ""      # 第一个章节名（无游戏概述时兜底用）
+
+    for line in lines:
+        s = line.strip()
+        if s.startswith("# "):
+            if not doc_title:
+                doc_title = s[2:].strip()
+        elif s.startswith("## ") or s.startswith("### "):
+            name = s.lstrip("#").strip()
+            if not first_section:
+                first_section = name
+            sections.append(name)
+            current = name
+            if name == "游戏概述":
+                seen_overview = True
+        elif not overview and s and not s.startswith(("- ", "* ", "`", "|", ">")):
+            # 正文行：在"游戏概述"内，或在没有游戏概述时的首个章节内
+            if current == "游戏概述" or (not seen_overview and current == first_section):
+                overview = s[:60]
+
+    summary = []
+    if doc_title:
+        summary.append(f"📄 {doc_title}")
+    if overview:
+        summary.append(f"💡 {overview}")
+    if sections:
+        summary.append("📑 " + " / ".join(sections[:8]))
+    return "\n".join(summary) if summary else md_text[:100]
+
 # ===================== Flask应用 =====================
 app = Flask(__name__)
 
@@ -159,9 +199,9 @@ def receive_plan():
         if not plan_content:
             return jsonify({"error": "未收到方案内容"}), 400
         
-        print("\n主策划方案内容:")
+        print("\n收到的主策划方案概要:")
         print("-" * 60)
-        print(plan_content[:500] + "..." if len(plan_content) > 500 else plan_content)
+        print(summarize_md(plan_content))
         print("-" * 60)
         
         # 运行玩法策划Agent
@@ -187,10 +227,7 @@ def receive_plan():
         print("玩法策划方案摘要")
         print("=" * 60)
         
-        lines = output_content.split('\n')
-        for line in lines[:20]:
-            if line.strip():
-                print(line)
+        print(summarize_md(output_content))
         
         print("\n✅ 玩法策划Agent工作完成！")
         
