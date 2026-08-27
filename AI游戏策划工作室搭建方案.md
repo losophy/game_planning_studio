@@ -1,8 +1,8 @@
 # AI游戏策划工作室搭建方案
 
 > 本文件为**设计文档**，不含代码实现。代码见项目内对应文件：
-> - 主策划Agent：`lead_agent/main.py`，打包脚本 `lead_agent/build.py`
-> - 玩法策划Agent：`gameplay_agent/main.py`，打包脚本 `gameplay_agent/build.py`
+> - 主策划Agent：`lead_agent/main.py`
+> - 玩法策划Agent：`gameplay_agent/main.py`
 
 ## 一、方案概述
 
@@ -16,7 +16,7 @@
 
 | 特点 | 说明 |
 |------|------|
-| **独立exe** | 两个Agent各自打包为独立可执行文件 |
+| **独立进程** | 两个Agent各自独立启动（uv run） |
 | **已知URI** | 通过配置文件指定玩法策划Agent的URI |
 | **跨电脑** | 支持不同电脑之间的HTTP通信（简化版A2A） |
 | **HTTP服务** | 玩法策划提供HTTP接口，主策划调用发送 |
@@ -28,13 +28,13 @@
 ```
 【场景：跨电脑协作】
 
-电脑B：启动玩法策划Agent.exe
+电脑B：启动玩法策划Agent（uv run python main.py）
     ↓
 玩法策划Agent启动HTTP服务（端口8080）
     ↓
 用户配置主策划Agent的URI
 
-电脑A：启动主策划Agent.exe
+电脑A：启动主策划Agent（uv run python main.py）
     ↓
 输入游戏需求
     ↓
@@ -62,7 +62,7 @@
 │                                                             │
 │  【电脑A】                          【电脑B】               │
 │  ┌─────────────────────┐           ┌─────────────────────┐ │
-│  │  主策划Agent.exe    │           │  玩法策划Agent.exe  │ │
+│  │  主策划Agent进程    │           │  玩法策划Agent进程  │ │
 │  │                     │           │                     │ │
 │  │  用户输入           │           │  启动HTTP服务       │ │
 │  │      ↓              │   HTTP    │      ↓              │ │
@@ -87,7 +87,6 @@
 game_planning_studio/
 ├── lead_agent/
 │   ├── main.py              # 主策划Agent主程序
-│   ├── build.py             # 主策划Agent打包脚本（独立打包）
 │   ├── config.yaml          # 配置文件
 │   ├── pyproject.toml       # 本Agent依赖声明（uv）
 │   ├── .env                 # 本Agent模型配置（独立于其他Agent）
@@ -99,7 +98,6 @@ game_planning_studio/
 │   └── uv.lock              # uv sync 自动生成
 ├── gameplay_agent/
 │   ├── main.py              # 玩法策划Agent主程序（含HTTP服务）
-│   ├── build.py             # 玩法策划Agent打包脚本（独立打包）
 │   ├── config.yaml          # 配置文件
 │   ├── pyproject.toml       # 本Agent依赖声明（uv）
 │   ├── .env                 # 本Agent模型配置（独立于其他Agent）
@@ -236,7 +234,7 @@ shared/
         └── SKILL.md
 ```
 
-> **说明**：`need_analysis` 是主策划与玩法策划共享的技能。修改 `shared/skills/need_analysis/SKILL.md` 后，需同步复制到两个Agent各自的 `skills/need_analysis/` 目录（或打包时统一从 shared 复制）。
+> **说明**：`need_analysis` 是主策划与玩法策划共享的技能。修改 `shared/skills/need_analysis/SKILL.md` 后，需同步复制到两个Agent各自的 `skills/need_analysis/` 目录。
 
 ### 6.2 需求分析Skill
 
@@ -563,11 +561,11 @@ AI游戏策划工作室 - 主策划Agent
 
 ---
 
-## 八、打包为exe
+## 八、依赖管理（uv）
 
-### 8.1 依赖文件
+项目使用 [uv](https://docs.astral.sh/uv/) 管理依赖，每个 Agent 独立环境、各自声明依赖。
 
-每个 Agent 的依赖声明在各自的 `pyproject.toml`（uv 管理，`uv sync` 生成 `uv.lock`）：
+### 8.1 依赖声明
 
 ```toml
 # lead_agent/pyproject.toml
@@ -599,28 +597,23 @@ dependencies = [
 ]
 ```
 
-### 8.2 打包说明
-
-每个 Agent 各自独立打包，打包脚本在各 Agent 目录下（`lead_agent/build.py`、`gameplay_agent/build.py`）。
-
-核心策略：**config.yaml、skills/、.env 均不打进 exe，而是复制到 exe 同级目录**——这样用户可以直接修改 exe 旁边的 config.yaml 与 .env，跨电脑场景才能改 URI 和模型配置。
-
-### 8.3 打包命令
+### 8.2 安装与运行
 
 ```bash
-# 打包主策划Agent（在 lead_agent 目录下运行）
-# --with pyinstaller：临时附加PyInstaller（不写进pyproject），在项目venv内运行，
-#                     确保能收集 langchain 等依赖
+# 安装依赖（各自目录下执行，自动创建 .venv 与 uv.lock）
 cd lead_agent
-uv run --with pyinstaller python build.py
+uv sync
 
-# 打包玩法策划Agent（在 gameplay_agent 目录下运行）
 cd ../gameplay_agent
-uv run --with pyinstaller python build.py
+uv sync
 
-# 产物：各自目录的 dist/ 下
-#   lead_agent/dist/lead_agent/lead_agent.exe
-#   gameplay_agent/dist/gameplay_agent/gameplay_agent.exe
+# 启动玩法策划Agent（先启动，监听8080端口）
+cd ../gameplay_agent
+uv run python main.py
+
+# 启动主策划Agent（另一个终端）
+cd ../lead_agent
+uv run python main.py
 ```
 
 ---
@@ -660,7 +653,7 @@ sudo pfctl -e
 | Skills | `SKILL.md` | 27章 |
 | A2A通信 | HTTP (Flask) + 已知URI（简化版A2A） | 26章（概念参考） |
 | 输出格式 | Markdown | - |
-| 打包 | PyInstaller | - |
+| 依赖管理 | uv（pyproject.toml + uv.lock） | - |
 
 ---
 
@@ -670,7 +663,7 @@ sudo pfctl -e
 
 | 特点 | 说明 |
 |------|------|
-| **独立exe** | 两个Agent各自打包为独立可执行文件 |
+| **独立进程** | 两个Agent各自独立启动（uv run） |
 | **已知URI** | 通过配置文件指定玩法策划Agent的URI |
 | **跨电脑** | 支持不同电脑之间的HTTP通信（简化版A2A） |
 | **HTTP服务** | 玩法策划提供HTTP接口，主策划调用发送 |
@@ -682,12 +675,12 @@ sudo pfctl -e
 ```
 1. 配置玩法策划Agent的URI（config.yaml）
 2. 配置主策划Agent的玩法策划URI（config.yaml）
-3. 启动玩法策划Agent.exe（启动HTTP服务，等待）
-4. 启动主策划Agent.exe（输入需求，输出方案，调用玩法策划）
+3. 启动玩法策划Agent（uv run，启动HTTP服务，等待）
+4. 启动主策划Agent（uv run，输入需求，输出方案，调用玩法策划）
 5. 查看 output/ 目录下的两个md文件
 ```
 
 ---
 
 *方案版本：v6.1（设计文档版，代码见项目文件）*
-*技术栈：LangChain + Flask + Python + PyInstaller*
+*技术栈：LangChain + Flask + Python + uv*

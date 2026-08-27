@@ -8,7 +8,6 @@
 game_planning_studio/
 ├── lead_agent/           # 主策划Agent（命令行交互）
 │   ├── main.py
-│   ├── build.py          # 本Agent打包脚本
 │   ├── config.yaml
 │   ├── pyproject.toml    # 本Agent依赖声明（uv）
 │   ├── skills/
@@ -18,7 +17,6 @@ game_planning_studio/
 │   └── .venv/            # uv sync 自动创建
 ├── gameplay_agent/       # 玩法策划Agent（HTTP服务）
 │   ├── main.py
-│   ├── build.py          # 本Agent打包脚本
 │   ├── config.yaml
 │   ├── pyproject.toml    # 本Agent依赖声明（uv）
 │   ├── skills/
@@ -88,23 +86,6 @@ uv run python main.py
 1. 电脑B（玩法策划）：`ipconfig` 查看本机IP，把 `gameplay_agent/config.yaml` 中 `uri` 改为该IP，启动。
 2. 电脑A（主策划）：把 `lead_agent/config.yaml` 中 `gameplay_uri` / `gameplay_health_uri` 改为电脑B的IP，启动。
 3. 注意防火墙放行8080端口（见方案第9章）。
-
-## 打包为exe
-
-每个 Agent 各自独立打包（各自的 `build.py`），分别在各自目录下运行。
-`--with pyinstaller` 是临时附加 PyInstaller（不写进 pyproject），打包时它会运行在项目 venv 内，正确收集 langchain 等依赖：
-
-```bash
-# 打包主策划Agent
-cd lead_agent
-uv run --with pyinstaller python build.py
-
-# 打包玩法策划Agent
-cd ../gameplay_agent
-uv run --with pyinstaller python build.py
-```
-
-产物在各自 Agent 目录的 `dist/` 下，exe 同级目录会自动带上 `config.yaml`、`skills/`、`.env`，分发时需一并拷贝。
 
 ## 方案文档
 

@@ -1,7 +1,6 @@
 # gameplay_agent/main.py
 
 import os
-import sys
 import yaml
 from pathlib import Path
 from flask import Flask, request, jsonify
@@ -11,14 +10,12 @@ from dotenv import load_dotenv
 
 # ===================== 路径与环境 =====================
 def get_base_dir() -> Path:
-    """基础目录：开发时为脚本目录，打包后为 exe 所在目录（便于外部修改config.yaml）"""
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
+    """基础目录：脚本所在目录（config.yaml 与 .env 与脚本同级）"""
     return Path(__file__).resolve().parent
 
 BASE_DIR = get_base_dir()
 
-# .env：与本Agent的 config.yaml 同级（开发时在Agent目录，打包后在exe同级目录）
+# .env：与本Agent的 config.yaml 同级
 ENV_PATH = BASE_DIR / ".env"
 load_dotenv(ENV_PATH)
 

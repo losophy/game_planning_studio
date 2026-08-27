@@ -1,7 +1,6 @@
 # lead_agent/main.py
 
 import os
-import sys
 import yaml
 import requests
 from pathlib import Path
@@ -11,14 +10,12 @@ from dotenv import load_dotenv
 
 # ===================== 路径与环境 =====================
 def get_base_dir() -> Path:
-    """基础目录：开发时为脚本目录，打包后为 exe 所在目录（便于外部修改config.yaml）"""
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
+    """基础目录：脚本所在目录（config.yaml 与 .env 与脚本同级）"""
     return Path(__file__).resolve().parent
 
 BASE_DIR = get_base_dir()
 
-# .env：与本Agent的 config.yaml 同级（开发时在Agent目录，打包后在exe同级目录）
+# .env：与本Agent的 config.yaml 同级
 ENV_PATH = BASE_DIR / ".env"
 load_dotenv(ENV_PATH)
 
@@ -242,8 +239,8 @@ def main():
         print("=" * 60)
         print("玩法策划Agent未启动，方案已保存到文件。")
         print("如需玩法策划分析，请：")
-        print("1. 启动玩法策划Agent.exe")
-        print("2. 重新运行主策划Agent")
+        print("1. 先启动玩法策划Agent（gameplay_agent 目录下 uv run python main.py）")
+        print("2. 再重新运行主策划Agent")
     
     print("\n✅ 主策划Agent工作完成！")
 
