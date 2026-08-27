@@ -1,10 +1,11 @@
 # gameplay_agent/build.py
-# 在 gameplay_agent 目录下运行：uv run python build.py
-# 前置：uv tool install pyinstaller（全局工具，一次即可）
-# 产物输出到本目录 dist/gameplay_agent/，与 exe 同级带上 config.yaml、skills/、.env
+# 在 gameplay_agent 目录下运行：uv run --with pyinstaller python build.py
+# 说明：--with pyinstaller 是临时附加（不写进 pyproject），pyinstaller 跑在项目 venv 内
+#       才能正确收集 langchain 等依赖；产物在 dist/gameplay_agent/，与 exe 同级带上 config.yaml、skills/、.env
 
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 AGENT_DIR = Path(__file__).resolve().parent
@@ -14,7 +15,7 @@ def build_exe():
     """使用PyInstaller打包 gameplay_agent（config.yaml / skills/ / .env 不打进 exe，
     而是复制到 exe 同级目录，便于外部修改配置与模型）"""
     cmd = [
-        "pyinstaller",  # 全局工具：uv tool install pyinstaller
+        sys.executable, "-m", "PyInstaller",
         "--onefile",
         "--name", AGENT_NAME,
         "--distpath", str(AGENT_DIR / "dist"),

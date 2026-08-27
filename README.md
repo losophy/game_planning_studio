@@ -91,16 +91,17 @@ uv run python main.py
 
 ## 打包为exe
 
-每个 Agent 各自独立打包（各自的 `build.py`），分别在各自目录下运行：
+每个 Agent 各自独立打包（各自的 `build.py`），分别在各自目录下运行。
+`--with pyinstaller` 是临时附加 PyInstaller（不写进 pyproject），打包时它会运行在项目 venv 内，正确收集 langchain 等依赖：
 
 ```bash
 # 打包主策划Agent
 cd lead_agent
-uv run python build.py
+uv run --with pyinstaller python build.py
 
 # 打包玩法策划Agent
 cd ../gameplay_agent
-uv run python build.py
+uv run --with pyinstaller python build.py
 ```
 
 产物在各自 Agent 目录的 `dist/` 下，exe 同级目录会自动带上 `config.yaml`、`skills/`、`.env`，分发时需一并拷贝。

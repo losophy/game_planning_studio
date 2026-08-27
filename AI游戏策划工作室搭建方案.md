@@ -608,16 +608,15 @@ dependencies = [
 ### 8.3 打包命令
 
 ```bash
-# 安装PyInstaller（两个Agent共用，装一次即可）
-uv tool install pyinstaller
-
 # 打包主策划Agent（在 lead_agent 目录下运行）
+# --with pyinstaller：临时附加PyInstaller（不写进pyproject），在项目venv内运行，
+#                     确保能收集 langchain 等依赖
 cd lead_agent
-uv run python build.py
+uv run --with pyinstaller python build.py
 
 # 打包玩法策划Agent（在 gameplay_agent 目录下运行）
 cd ../gameplay_agent
-uv run python build.py
+uv run --with pyinstaller python build.py
 
 # 产物：各自目录的 dist/ 下
 #   lead_agent/dist/lead_agent/lead_agent.exe
