@@ -141,56 +141,49 @@ def send_plan_to_gameplay(plan_content: str, plan_file: str):
         
         if response.status_code == 200:
             result = response.json()
-            print(f"\n✅ 已成功发送方案给玩法策划Agent")
-            print(f"   玩法策划方案将保存到: {result.get('output_file', '未知')}")
+            print(f"\n✅ 方案已递交给玩法策划")
+            print(f"   玩法策划方案会放在: {result.get('output_file', '未知')}")
             
             # 如果返回了方案内容，保存到本地
             if "plan_content" in result:
                 gameplay_output = OUTPUT_DIR / config["output"]["gameplay_plan"]
                 with open(gameplay_output, 'w', encoding='utf-8') as f:
                     f.write(result["plan_content"])
-                print(f"   已同步保存到本地: {gameplay_output}")
+                print(f"   玩法策划的方案已同步带回一份")
             
             return True
         else:
-            print(f"\n❌ 发送方案失败: {response.status_code}")
+            print(f"\n❌ 递交方案失败: {response.status_code}")
             return False
             
     except requests.exceptions.ConnectionError:
-        print(f"\n❌ 无法连接到玩法策划Agent: {GAMEPLAY_URI}")
-        print("   请确保玩法策划Agent已启动并且网络可达")
+        print(f"\n❌ 找不到玩法策划: {GAMEPLAY_URI}")
+        print("   可能还没到工位，稍后再试")
         return False
     except Exception as e:
-        print(f"\n❌ 发送方案时出错: {e}")
+        print(f"\n❌ 递交方案时出错: {e}")
         return False
 
 # ===================== 主程序 =====================
 def main():
     print("=" * 60)
-    print("AI游戏策划工作室 - 主策划Agent")
+    print("本主策划已到工位，听候老板差遣")
     print("=" * 60)
     
-    # 显示配置信息
-    print()
-    print("配置信息:")
-    print(f"  玩法策划URI: {GAMEPLAY_URI}")
-    print(f"  输出目录: {OUTPUT_DIR}")
-    
     # 检查玩法策划Agent
-    print("\n正在检查玩法策划Agent状态...")
+    print("\n正在检查玩法策划是否在工位...")
     is_online, info = check_gameplay_agent()
     
     if is_online:
-        print("✅ 玩法策划Agent已在线")
-        print(f"   URI: {info.get('uri', '未知')}")
+        print("✅ 玩法策划已在工位")
         gameplay_online = True
     else:
-        print("⚠️ 玩法策划Agent未启动或不可达")
-        print("   方案将只保存到文件，不会自动发送给玩法策划")
+        print("⚠️ 玩法策划还没到工位")
+        print("   主策划方案会先做出来，等玩法策划到位后再补玩法设计")
         gameplay_online = False
     
     # 获取用户输入
-    user_input = input("\n请输入你的游戏想法: ").strip()
+    user_input = input("\n老板，你想做什么游戏: ").strip()
     if not user_input:
         user_input = "我想做一个二次元风格的卡牌RPG手游"
     
@@ -214,7 +207,7 @@ def main():
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(output_content)
     
-    print(f"\n✅ 主策划方案已保存到: {output_file}")
+    print(f"\n✅ 主策划方案已完成，存放在: {output_file}")
     
     # 显示方案摘要
     print("\n" + "=" * 60)
@@ -229,7 +222,7 @@ def main():
     # 发送方案给玩法策划
     if gameplay_online:
         print("\n" + "=" * 60)
-        print("正在发送方案给玩法策划Agent...")
+        print("正在把方案递交给玩法策划...")
         print("=" * 60)
         
         send_plan_to_gameplay(output_content, str(output_file))
@@ -237,12 +230,10 @@ def main():
         print("\n" + "=" * 60)
         print("提示")
         print("=" * 60)
-        print("玩法策划Agent未启动，方案已保存到文件。")
-        print("如需玩法策划分析，请：")
-        print("1. 先启动玩法策划Agent（gameplay_agent 目录下 uv run python main.py）")
-        print("2. 再重新运行主策划Agent")
+        print("玩法策划还没到工位，主策划方案先存档。")
+        print("等玩法策划到位后，重新运行本主策划即可补上玩法设计。")
     
-    print("\n✅ 主策划Agent工作完成！")
+    print("\n✅ 主策划交稿完成！")
 
 if __name__ == "__main__":
     main()

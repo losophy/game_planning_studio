@@ -1,6 +1,7 @@
 # gameplay_agent/main.py
 
 import os
+import logging
 import yaml
 from pathlib import Path
 from flask import Flask, request, jsonify
@@ -117,6 +118,13 @@ gameplay_designer = create_agent(
 # ===================== Flask应用 =====================
 app = Flask(__name__)
 
+# 静音开发服务器的技术日志（WARNING、banner、Running on、请求日志等）
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
+logging.getLogger('flask.cli').setLevel(logging.ERROR)
+# Flask 的 banner（"Serving Flask app / Debug mode"）不走 logging，直接替换为空函数
+import flask.cli
+flask.cli.show_server_banner = lambda *args, **kwargs: None
+
 @app.route('/health', methods=['GET'])
 def health():
     """健康检查接口"""
@@ -199,36 +207,25 @@ def receive_plan():
 
 def run_flask():
     """运行Flask服务"""
-    print("=" * 60)
-    print(f"玩法策划Agent HTTP服务启动中...")
-    print(f"端口: {HTTP_PORT}")
-    print(f"服务URI: {config['gameplay_agent']['uri']}")
-    print(f"健康检查: {config['gameplay_agent']['uri']}/health")
-    print(f"接收方案: {config['gameplay_agent']['uri']}/receive_plan")
-    print("=" * 60)
-    
     app.run(host='0.0.0.0', port=HTTP_PORT, debug=False, threaded=True)
 
 # ===================== 主程序 =====================
 def main():
     print("=" * 60)
-    print("AI游戏策划工作室 - 玩法策划Agent")
+    print("本玩法策划已到工位，等待主策划发送方案")
     print("=" * 60)
     print()
-    print("本Agent将启动HTTP服务，等待主策划Agent发送方案。")
+    print("我的职责：")
+    print("1. 核心循环：设计玩家主要行为循环")
+    print("2. 战斗/操作机制：设计核心操作和战斗系统")
+    print("3. 成长系统：设计角色/装备/技能成长路径")
+    print("4. 数值框架：设计基础数值体系和平衡原则")
     print()
-    print("配置信息:")
-    print(f"  服务端口: {HTTP_PORT}")
-    print(f"  服务URI: {config['gameplay_agent']['uri']}")
-    print(f"  输出目录: {OUTPUT_DIR}")
+    print("收到主策划的方案后，我会基于他的方向进行深入的玩法设计。")
     print()
-    print("请确保：")
-    print("1. 防火墙允许端口访问")
-    print("2. 主策划Agent配置正确的URI")
-    print()
-    print("按 Ctrl+C 停止服务")
+    print("按 Ctrl+C 下班")
     print("=" * 60)
-    
+
     # 启动HTTP服务
     run_flask()
 
