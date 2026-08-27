@@ -1,0 +1,16 @@
+# lead_agent/config.yaml
+
+# 玩法策划Agent配置（需要填写实际的URI）
+lead_agent:
+  # 玩法策划Agent的URI（用于发送方案）
+  # 如果是同一台电脑: http://localhost:8080/receive_plan
+  # 如果是不同电脑: http://192.168.1.100:8080/receive_plan
+  gameplay_uri: "http://localhost:8080/receive_plan"
+  # 玩法策划Agent的健康检查URI（显式配置，避免字符串替换推导）
+  gameplay_health_uri: "http://localhost:8080/health"
+
+# 输出配置
+output:
+  dir: "./output"
+  lead_plan: "主策划方案.md"
+  gameplay_plan: "玩法策划方案.md"

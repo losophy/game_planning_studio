@@ -1,0 +1,16 @@
+# 环境变量（含API Key，勿提交）
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 输出
+output/
+
+# 打包产物
+build/
+dist/
+*.spec

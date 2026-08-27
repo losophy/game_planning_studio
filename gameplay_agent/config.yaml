@@ -1,0 +1,15 @@
+# gameplay_agent/config.yaml
+
+# 服务配置
+gameplay_agent:
+  # 服务端口
+  port: 8080
+  # 公网/局域网URI（用于跨电脑通信）
+  # 如果是同一台电脑: http://localhost:8080
+  # 如果是不同电脑: http://192.168.1.100:8080
+  uri: "http://localhost:8080"
+
+# 输出配置
+output:
+  dir: "./output"
+  gameplay_plan: "玩法策划方案.md"
