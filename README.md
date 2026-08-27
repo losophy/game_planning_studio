@@ -10,22 +10,24 @@ game_planning_studio/
 │   ├── main.py
 │   ├── build.py          # 本Agent打包脚本
 │   ├── config.yaml
+│   ├── pyproject.toml    # 本Agent依赖声明（uv）
 │   ├── skills/
 │   │   ├── need_analysis/     # 共享技能（与玩法策划各带一份）
 │   │   └── project_planning/
 │   ├── .env              # 本Agent模型配置（勿提交）
-│   └── requirements.txt
+│   └── .venv/            # uv sync 自动创建
 ├── gameplay_agent/       # 玩法策划Agent（HTTP服务）
 │   ├── main.py
 │   ├── build.py          # 本Agent打包脚本
 │   ├── config.yaml
+│   ├── pyproject.toml    # 本Agent依赖声明（uv）
 │   ├── skills/
 │   │   ├── need_analysis/     # 共享技能
 │   │   ├── core_loop/
 │   │   ├── combat_system/
 │   │   └── numerical_balance/
 │   ├── .env              # 本Agent模型配置（勿提交）
-│   └── requirements.txt
+│   └── .venv/            # uv sync 自动创建
 ├── shared/skills/        # 共享技能源（改动后同步到两个Agent）
 └── README.md
 ```
@@ -49,24 +51,32 @@ LLM_API_KEY=sk-你的Key
 
 也兼容 `DEEPSEEK_API_KEY` 旧字段。
 
-### 2. 安装依赖
+### 2. 安装依赖（uv）
+
+项目使用 [uv](https://docs.astral.sh/uv/) 管理依赖（每个 Agent 各自独立环境）。先确认已安装 uv，然后：
 
 ```bash
+# 安装主策划Agent依赖
 cd lead_agent
-pip install -r requirements.txt
+uv sync
 
+# 安装玩法策划Agent依赖
 cd ../gameplay_agent
-pip install -r requirements.txt
+uv sync
 ```
+
+`uv sync` 会自动创建 `.venv` 并生成 `uv.lock`。
 
 ### 3. 同一台电脑运行
 
 ```bash
 # 终端1：启动玩法策划Agent（先启动，监听8080端口）
-python gameplay_agent/main.py
+cd gameplay_agent
+uv run python main.py
 
 # 终端2：启动主策划Agent，输入游戏想法
-python lead_agent/main.py
+cd ../lead_agent
+uv run python main.py
 ```
 
 输出文件在各自 Agent 的 `output/` 目录：
@@ -86,12 +96,11 @@ python lead_agent/main.py
 ```bash
 # 打包主策划Agent
 cd lead_agent
-pip install pyinstaller
-python build.py
+uv run python build.py
 
 # 打包玩法策划Agent
 cd ../gameplay_agent
-python build.py
+uv run python build.py
 ```
 
 产物在各自 Agent 目录的 `dist/` 下，exe 同级目录会自动带上 `config.yaml`、`skills/`、`.env`，分发时需一并拷贝。

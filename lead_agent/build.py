@@ -1,10 +1,10 @@
 # lead_agent/build.py
-# 在 lead_agent 目录下运行：python build.py
+# 在 lead_agent 目录下运行：uv run python build.py
+# 前置：uv tool install pyinstaller（全局工具，一次即可）
 # 产物输出到本目录 dist/lead_agent/，与 exe 同级带上 config.yaml、skills/、.env
 
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 AGENT_DIR = Path(__file__).resolve().parent
@@ -14,7 +14,7 @@ def build_exe():
     """使用PyInstaller打包 lead_agent（config.yaml / skills/ / .env 不打进 exe，
     而是复制到 exe 同级目录，便于外部修改配置与模型）"""
     cmd = [
-        sys.executable, "-m", "PyInstaller",
+        "pyinstaller",  # 全局工具：uv tool install pyinstaller
         "--onefile",
         "--name", AGENT_NAME,
         "--distpath", str(AGENT_DIR / "dist"),

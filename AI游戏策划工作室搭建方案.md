@@ -89,17 +89,19 @@ game_planning_studio/
 │   ├── main.py              # 主策划Agent主程序
 │   ├── build.py             # 主策划Agent打包脚本（独立打包）
 │   ├── config.yaml          # 配置文件
+│   ├── pyproject.toml       # 本Agent依赖声明（uv）
 │   ├── .env                 # 本Agent模型配置（独立于其他Agent）
 │   ├── skills/              # 主策划Skills
 │   │   ├── need_analysis/   # 共享技能（与玩法策划各带一份）
 │   │   │   └── SKILL.md
 │   │   └── project_planning/
 │   │       └── SKILL.md
-│   └── requirements.txt
+│   └── uv.lock              # uv sync 自动生成
 ├── gameplay_agent/
 │   ├── main.py              # 玩法策划Agent主程序（含HTTP服务）
 │   ├── build.py             # 玩法策划Agent打包脚本（独立打包）
 │   ├── config.yaml          # 配置文件
+│   ├── pyproject.toml       # 本Agent依赖声明（uv）
 │   ├── .env                 # 本Agent模型配置（独立于其他Agent）
 │   ├── skills/              # 玩法策划Skills
 │   │   ├── need_analysis/   # 共享技能（与主策划各带一份）
@@ -110,7 +112,7 @@ game_planning_studio/
 │   │   │   └── SKILL.md
 │   │   └── numerical_balance/
 │   │       └── SKILL.md
-│   └── requirements.txt
+│   └── uv.lock              # uv sync 自动生成
 ├── shared/
 │   └── skills/              # 共享Skills源（改动后需同步到两个Agent）
 │       └── need_analysis/
@@ -454,13 +456,13 @@ LLM_API_KEY=你的Key
 ```
 
 ```bash
-# 1. 安装主策划Agent依赖
+# 1. 安装主策划Agent依赖（uv，自动创建 .venv 与 uv.lock）
 cd lead_agent
-pip install -r requirements.txt
+uv sync
 
 # 2. 安装玩法策划Agent依赖
-cd gameplay_agent
-pip install -r requirements.txt
+cd ../gameplay_agent
+uv sync
 ```
 
 ### 7.2 同一台电脑使用
@@ -479,10 +481,10 @@ lead_agent:
   gameplay_health_uri: "http://localhost:8080/health"
 
 # 3. 启动玩法策划Agent（先启动，它要监听HTTP端口）
-python gameplay_agent/main.py
+uv run python gameplay_agent/main.py
 
 # 4. 启动主策划Agent
-python lead_agent/main.py
+uv run python lead_agent/main.py
 ```
 
 ### 7.3 跨电脑使用
@@ -500,7 +502,7 @@ gameplay_agent:
   uri: "http://192.168.1.100:8080"  # 电脑B的IP
 
 # 3. 启动玩法策划Agent
-python main.py
+uv run python main.py
 
 # 电脑A（主策划Agent）
 # 1. 配置主策划Agent
@@ -510,7 +512,7 @@ lead_agent:
   gameplay_health_uri: "http://192.168.1.100:8080/health"  # 电脑B的IP
 
 # 2. 启动主策划Agent
-python main.py
+uv run python main.py
 ```
 
 ### 7.4 输出示例
@@ -565,20 +567,36 @@ AI游戏策划工作室 - 主策划Agent
 
 ### 8.1 依赖文件
 
-```
-# lead_agent/requirements.txt
-langchain>=1.0.0
-langchain-openai>=0.3.0
-python-dotenv
-requests
-pyyaml
+每个 Agent 的依赖声明在各自的 `pyproject.toml`（uv 管理，`uv sync` 生成 `uv.lock`）：
 
-# gameplay_agent/requirements.txt
-langchain>=1.0.0
-langchain-openai>=0.3.0
-python-dotenv
-flask
-pyyaml
+```toml
+# lead_agent/pyproject.toml
+[project]
+name = "lead-agent"
+version = "0.1.0"
+description = "主策划Agent"
+requires-python = ">=3.10"
+dependencies = [
+    "langchain>=1.0.0",
+    "langchain-openai>=0.3.0",
+    "python-dotenv",
+    "requests",
+    "pyyaml",
+]
+
+# gameplay_agent/pyproject.toml
+[project]
+name = "gameplay-agent"
+version = "0.1.0"
+description = "玩法策划Agent"
+requires-python = ">=3.10"
+dependencies = [
+    "langchain>=1.0.0",
+    "langchain-openai>=0.3.0",
+    "python-dotenv",
+    "flask",
+    "pyyaml",
+]
 ```
 
 ### 8.2 打包说明
@@ -591,15 +609,15 @@ pyyaml
 
 ```bash
 # 安装PyInstaller（两个Agent共用，装一次即可）
-pip install pyinstaller
+uv tool install pyinstaller
 
 # 打包主策划Agent（在 lead_agent 目录下运行）
 cd lead_agent
-python build.py
+uv run python build.py
 
 # 打包玩法策划Agent（在 gameplay_agent 目录下运行）
 cd ../gameplay_agent
-python build.py
+uv run python build.py
 
 # 产物：各自目录的 dist/ 下
 #   lead_agent/dist/lead_agent/lead_agent.exe

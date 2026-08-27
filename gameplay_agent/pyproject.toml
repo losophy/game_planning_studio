@@ -1,0 +1,12 @@
+[project]
+name = "gameplay-agent"
+version = "0.1.0"
+description = "玩法策划Agent"
+requires-python = ">=3.10"
+dependencies = [
+    "langchain>=1.0.0",
+    "langchain-openai>=0.3.0",
+    "python-dotenv",
+    "flask",
+    "pyyaml",
+]
