@@ -1,6 +1,8 @@
 # AI游戏策划工作室
 
 基于 LangChain + Flask 的双 Agent 协作系统：**主策划Agent**（`lead_agent/`）从"老板一句话"产出主策划方案，通过**标准A2A协议**（Agent Card 发现 + JSON-RPC `tasks/send` 提交任务）把方案交给 **玩法策划Agent**（`gameplay_agent/`），产出玩法策划方案。支持同机与跨电脑运行。
+![AI游戏策划工作室玩法策划](images/gameplayagent.png)
+![AI游戏策划工作室玩法策划](images/leadagent.png)
 
 ## 目录结构
 
