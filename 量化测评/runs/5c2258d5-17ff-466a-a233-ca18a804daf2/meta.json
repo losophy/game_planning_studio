@@ -1,0 +1,11 @@
+{
+  "case_id": "08",
+  "complexity": "中",
+  "input": "做一个文字冒险游戏，分支剧情",
+  "run_id": "5c2258d5-17ff-466a-a233-ca18a804daf2",
+  "task_id": "744f2c98-d825-4675-a549-b785115e8203",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 83175.7
+}

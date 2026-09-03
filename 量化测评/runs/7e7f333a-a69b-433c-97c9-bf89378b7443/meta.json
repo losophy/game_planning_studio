@@ -1,0 +1,11 @@
+{
+  "case_id": 19,
+  "complexity": "高",
+  "input": "做一款 MUD 文字网游",
+  "run_id": "7e7f333a-a69b-433c-97c9-bf89378b7443",
+  "task_id": "14567936-3674-4c1b-b81f-cb255eb128ff",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 87704.2
+}

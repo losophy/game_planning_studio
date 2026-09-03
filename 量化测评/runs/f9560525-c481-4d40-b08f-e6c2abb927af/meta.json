@@ -1,0 +1,11 @@
+{
+  "case_id": 5,
+  "complexity": "中",
+  "input": "做一款三消休闲游戏",
+  "run_id": "f9560525-c481-4d40-b08f-e6c2abb927af",
+  "task_id": "769a2e1b-9a4f-4efb-911e-1e339e0d3cd2",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 106867.6
+}

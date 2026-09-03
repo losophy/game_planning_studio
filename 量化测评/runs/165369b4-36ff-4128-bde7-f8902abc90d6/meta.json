@@ -1,0 +1,11 @@
+{
+  "case_id": 2,
+  "complexity": "低",
+  "input": "做一个 2048 类数字合成小游戏",
+  "run_id": "165369b4-36ff-4128-bde7-f8902abc90d6",
+  "task_id": "9d6db2a5-ed12-4cb8-962e-45358a1c6cb2",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 85788.1
+}

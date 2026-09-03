@@ -1,0 +1,11 @@
+{
+  "case_id": 3,
+  "complexity": "低",
+  "input": "做一款简单塔防游戏",
+  "run_id": "53e2848f-44e9-4959-a20d-4d967ddec24b",
+  "task_id": "dc5035ba-7d5d-40e4-bb2f-938368854aec",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 98971.7
+}

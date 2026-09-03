@@ -1,0 +1,11 @@
+{
+  "case_id": 1,
+  "complexity": "低",
+  "input": "我想做一个井字棋游戏",
+  "run_id": "b6ed35bf-e919-43c2-9dd4-533f2265d92b",
+  "task_id": "935dbe06-baa4-4413-8190-efa94c03503f",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 98223.7
+}

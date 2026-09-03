@@ -1,0 +1,11 @@
+{
+  "case_id": 16,
+  "complexity": "高",
+  "input": "做一款二次元风格的卡牌 RPG 手游",
+  "run_id": "18127826-eefe-495b-b046-ffeba7d5c869",
+  "task_id": "3eb8134e-91f2-4a58-a506-6c1f2794d850",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 98628.8
+}

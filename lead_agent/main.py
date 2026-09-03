@@ -8,6 +8,7 @@ from pathlib import Path
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
+from metrics import log_event, now_ms
 
 # ===================== 路径与环境 =====================
 def get_base_dir() -> Path:
@@ -50,7 +51,7 @@ def get_llm():
         model=os.getenv("LLM_MODEL", "deepseek-chat"),
         api_key=os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY"),
         base_url=os.getenv("LLM_BASE_URL", "https://api.deepseek.com"),
-        temperature=0.7,
+        temperature=float(os.getenv("LLM_TEMPERATURE", "0.7")),  # 主策划 DeepSeek-V3.2 推荐 0.7
     )
 
 # ===================== Skills加载 =====================
@@ -171,9 +172,19 @@ def summarize_md(md_text: str, show_sections: bool = True) -> str:
         summary.append("📑 " + " / ".join(sections[:8]))
     return "\n".join(summary) if summary else md_text[:100]
 
-def send_plan_to_gameplay(plan_content: str, plan_file: str):
-    """通过标准A2A协议（JSON-RPC tasks/send）发送方案给玩法策划Agent"""
+def send_plan_to_gameplay(plan_content: str, run_id: str) -> dict:
+    """通过标准A2A协议（JSON-RPC tasks/send）发送方案给玩法策划Agent（带事件打点）。
+
+    返回 dict：
+      ok            端到端成功（返回 completed 且玩法方案文本写盘成功）
+      task_id       A2A 任务 id（归并键之一）
+      gameplay_text 玩法方案全文（成功时有值）
+      fail_reason   失败分类（a2a_failed_* / artifact_missing / artifact_saved_failed）
+      error         具体错误文本
+      latency_ms    递交+回传段耗时（毫秒）
+    """
     task_id = str(uuid.uuid4())
+    t0 = now_ms()
     payload = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -188,45 +199,179 @@ def send_plan_to_gameplay(plan_content: str, plan_file: str):
             }
         }
     }
+    log_event(agent="lead", run_id=run_id, task_id=task_id,
+              event="a2a_send_start", state="submitted")
+
     try:
         response = requests.post(GAMEPLAY_URI, json=payload, timeout=300)
         data = response.json()
-
-        if data.get("error"):
-            print(f"\n❌ A2A调用失败: {data['error'].get('message', data['error'])}")
-            return False
-
-        task = data.get("result") or {}
-        state = (task.get("status") or {}).get("state", "unknown")
-
-        if state == "completed":
-            print(f"\n✅ 方案已递交给玩法策划")
-            print(f"   任务ID: {task_id}")
-
-            # 从 Artifact 中取玩法策划方案全文
-            artifacts = task.get("artifacts") or []
-            for artifact in artifacts:
-                for part in artifact.get("parts", []):
-                    if part.get("kind") == "text" and part.get("text"):
-                        gameplay_output = OUTPUT_DIR / config["output"]["gameplay_plan"]
-                        with open(gameplay_output, 'w', encoding='utf-8') as f:
-                            f.write(part["text"])
-                        print(f"   玩法策划的方案已同步带回一份")
-                        return True
-            return True
-        else:
-            msg = ((task.get("status") or {}).get("message") or {})
-            detail = "".join(p.get("text", "") for p in msg.get("parts", []))
-            print(f"\n❌ 玩法策划任务未完成: {state} {detail}")
-            return False
-
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.ConnectionError as e:
+        latency = now_ms() - t0
+        log_event(agent="lead", run_id=run_id, task_id=task_id,
+                  event="a2a_failed_offline", state="failed",
+                  error=str(e), latency_ms=round(latency, 1))
         print(f"\n❌ 找不到玩法策划: {GAMEPLAY_URI}")
         print("   可能还没到工位，稍后再试")
-        return False
+        return {"ok": False, "task_id": task_id, "gameplay_text": "",
+                "fail_reason": "a2a_failed_offline", "error": str(e),
+                "latency_ms": round(latency, 1)}
     except Exception as e:
+        latency = now_ms() - t0
+        log_event(agent="lead", run_id=run_id, task_id=task_id,
+                  event="a2a_failed_unknown", state="failed",
+                  error=str(e), latency_ms=round(latency, 1))
         print(f"\n❌ 递交方案时出错: {e}")
-        return False
+        return {"ok": False, "task_id": task_id, "gameplay_text": "",
+                "fail_reason": "a2a_failed_unknown", "error": str(e),
+                "latency_ms": round(latency, 1)}
+
+    latency = now_ms() - t0
+
+    if data.get("error"):
+        msg = data["error"].get("message", data["error"])
+        log_event(agent="lead", run_id=run_id, task_id=task_id,
+                  event="a2a_failed_jsonrpc", state="failed",
+                  error=str(msg), latency_ms=round(latency, 1))
+        print(f"\n❌ A2A调用失败: {msg}")
+        return {"ok": False, "task_id": task_id, "gameplay_text": "",
+                "fail_reason": "a2a_failed_jsonrpc", "error": str(msg),
+                "latency_ms": round(latency, 1)}
+
+    task = data.get("result") or {}
+    state = (task.get("status") or {}).get("state", "unknown")
+
+    if state != "completed":
+        msg = (task.get("status") or {}).get("message") or {}
+        detail = "".join(p.get("text", "") for p in msg.get("parts", []))
+        log_event(agent="lead", run_id=run_id, task_id=task_id,
+                  event="a2a_failed_state", state=state,
+                  error=f"{state} {detail}".strip(), latency_ms=round(latency, 1))
+        print(f"\n❌ 玩法策划任务未完成: {state} {detail}")
+        return {"ok": False, "task_id": task_id, "gameplay_text": "",
+                "fail_reason": "a2a_failed_state",
+                "error": f"{state} {detail}".strip(),
+                "latency_ms": round(latency, 1)}
+
+    # state == completed：递交流转成功，从 Artifact 中提取玩法策划方案全文
+    log_event(agent="lead", run_id=run_id, task_id=task_id,
+              event="a2a_completed", state="completed", latency_ms=round(latency, 1))
+    print(f"\n✅ 方案已递交给玩法策划")
+    print(f"   任务ID: {task_id}")
+    artifacts = task.get("artifacts") or []
+    text = ""
+    for artifact in artifacts:
+        for part in artifact.get("parts", []):
+            if part.get("kind") == "text" and part.get("text"):
+                text = part["text"]
+                break
+        if text:
+            break
+
+    if not text:
+        log_event(agent="lead", run_id=run_id, task_id=task_id,
+                  event="artifact_missing", state="completed",
+                  error="completed 但 artifacts 无 text part",
+                  latency_ms=round(latency, 1))
+        print("\n❌ 玩法策划返回 completed 但未带回方案文本（artifact_missing）")
+        return {"ok": False, "task_id": task_id, "gameplay_text": "",
+                "fail_reason": "artifact_missing",
+                "error": "completed 但无 text artifact",
+                "latency_ms": round(latency, 1)}
+
+    # 写盘
+    try:
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        gameplay_output = OUTPUT_DIR / config["output"]["gameplay_plan"]
+        with open(gameplay_output, 'w', encoding='utf-8') as f:
+            f.write(text)
+        log_event(agent="lead", run_id=run_id, task_id=task_id,
+                  event="artifact_saved", state="completed",
+                  latency_ms=round(latency, 1))
+        print(f"   玩法策划的方案已同步带回一份: {gameplay_output}")
+        return {"ok": True, "task_id": task_id, "gameplay_text": text,
+                "fail_reason": "", "error": "",
+                "latency_ms": round(latency, 1)}
+    except Exception as e:
+        log_event(agent="lead", run_id=run_id, task_id=task_id,
+                  event="artifact_saved", state="failed",
+                  error=f"写盘失败: {e}", latency_ms=round(latency, 1))
+        return {"ok": False, "task_id": task_id, "gameplay_text": text,
+                "fail_reason": "artifact_saved_failed", "error": str(e),
+                "latency_ms": round(latency, 1)}
+
+# ===================== 执行一轮端到端请求 =====================
+def execute_request(user_input: str, gameplay_online: bool | None = None) -> dict:
+    """执行一轮完整流程：需求 → 主策划方案 → A2A 递交 → 玩法方案回传写盘。
+
+    CLI 入口（main）与批量 runner（量化测评/run_e2e_batch.py）共用同一函数，
+    保证手工与批量两种跑法走完全相同的代码路径。
+
+    参数：
+    - user_input:      老板的需求文本
+    - gameplay_online: 玩法策划是否在线；None 表示内部探活一次（main 已探活则传入避免重复请求）
+    返回 dict：
+      run_id / task_id / ok / fail_reason / error / lead_plan / gameplay_plan / latency_ms
+      （ok=True 表示端到端完成：主策划方案落盘 + A2A completed + 玩法方案写盘成功）
+    """
+    run_id = str(uuid.uuid4())
+    t0 = now_ms()
+    log_event(agent="lead", run_id=run_id, event="request_start")
+
+    # 探活（可由调用方注入结果，避免重复请求）
+    if gameplay_online is None:
+        gameplay_online, _info = check_gameplay_agent()
+    log_event(agent="lead", run_id=run_id,
+              event="discovery_ok" if gameplay_online else "discovery_fail",
+              state="online" if gameplay_online else "offline")
+
+    # ---- 1. 主策划方案（invoke 包 try/except，异常不再崩进程）----
+    try:
+        t1 = now_ms()
+        result = lead_designer.invoke({
+            "messages": [{"role": "user", "content": user_input}]
+        })
+        # 取最后一条消息=Agent 最终回答（第一条是用户输入）
+        lead_plan = result["messages"][-1].content
+        log_event(agent="lead", run_id=run_id, event="lead_plan_ok",
+                  state="completed", latency_ms=round(now_ms() - t1, 1))
+    except Exception as e:
+        log_event(agent="lead", run_id=run_id, event="lead_plan_fail",
+                  state="failed", error=str(e),
+                  latency_ms=round(now_ms() - t1, 1))
+        print(f"\n❌ 主策划方案生成失败: {e}")
+        return {"run_id": run_id, "task_id": "", "ok": False,
+                "fail_reason": "lead_plan_fail", "error": str(e),
+                "lead_plan": None, "gameplay_plan": None,
+                "latency_ms": round(now_ms() - t0, 1)}
+
+    # ---- 2. 主策划方案落盘（CLI 既有行为；runner 另行存档副本）----
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    output_file = OUTPUT_DIR / config["output"]["lead_plan"]
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(lead_plan)
+    print(f"\n✅ 主策划方案已完成，存放于: {output_file}")
+
+    # ---- 3. A2A 递交 ----
+    if not gameplay_online:
+        # 本测评口径：玩法策划必须在线；离线"降级产出"不计为端到端成功
+        print("\n⚠️ 玩法策划还没到工位，主策划方案先存档。")
+        return {"run_id": run_id, "task_id": "", "ok": False,
+                "fail_reason": "a2a_failed_discovery",
+                "error": "玩法策划不在线（测评口径不计为成功）",
+                "lead_plan": lead_plan, "gameplay_plan": None,
+                "latency_ms": round(now_ms() - t0, 1)}
+
+    print("\n" + "=" * 60)
+    print("正在把方案递交给玩法策划...")
+    print("=" * 60)
+    send = send_plan_to_gameplay(lead_plan, run_id)
+    return {"run_id": run_id, "task_id": send["task_id"],
+            "ok": send["ok"], "fail_reason": send["fail_reason"],
+            "error": send["error"],
+            "lead_plan": lead_plan,
+            "gameplay_plan": send["gameplay_text"] or None,
+            "latency_ms": round(now_ms() - t0, 1)}
+
 
 # ===================== 主程序 =====================
 def main():
@@ -245,69 +390,48 @@ def main():
     print("按 Ctrl+C 下班")
     print("=" * 60)
     print()
-    
+
     # 检查玩法策划Agent
     print("正在检查玩法策划是否在工位...")
     is_online, info = check_gameplay_agent()
-    
+
     if is_online:
         print("✅ 玩法策划已在工位")
         print(f"   工位地址: {info.get('url', GAMEPLAY_URI)}")
-        gameplay_online = True
     else:
         print("⚠️ 玩法策划还没到工位")
         print("   主策划方案会先做出来，等玩法策划到位后再补玩法设计")
-        gameplay_online = False
-    
+
     # 获取用户输入
     user_input = input("\n老板，你想做什么游戏: ").strip()
     if not user_input:
         user_input = "我想做一个二次元风格的卡牌RPG手游"
-    
+
     print(f"\n需求: {user_input}")
     print("=" * 60)
     print("正在分析需求...")
     print("=" * 60)
-    
-    # 运行主策划Agent
-    result = lead_designer.invoke({
-        "messages": [{"role": "user", "content": user_input}]
-    })
-    
-    # 提取输出（取最后一条消息，即Agent的最终回答，不要取第一条=用户输入）
-    output_content = result["messages"][-1].content
-    
-    # 保存到文件
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output_file = OUTPUT_DIR / config["output"]["lead_plan"]
-    
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write(output_content)
-    
-    print(f"\n✅ 主策划方案已完成，存放在: {output_file}")
-    
-    # 显示方案摘要
+
+    # 执行一轮端到端流程（传入已探活的在线状态，避免重复探活）
+    result = execute_request(user_input, gameplay_online=is_online)
+
     print("\n" + "=" * 60)
-    print("主策划方案摘要")
-    print("=" * 60)
-    
-    print(summarize_md(output_content, show_sections=False))
-    
-    # 发送方案给玩法策划
-    if gameplay_online:
-        print("\n" + "=" * 60)
-        print("正在把方案递交给玩法策划...")
+    if result["ok"]:
+        print("✅ 主策划交稿完成！")
+        print("\n主策划方案摘要")
         print("=" * 60)
-        
-        send_plan_to_gameplay(output_content, str(output_file))
+        print(summarize_md(result["lead_plan"], show_sections=False))
+        gameplay_file = OUTPUT_DIR / config["output"]["gameplay_plan"]
+        print(f"\n玩法策划方案已同步回传: {gameplay_file}")
     else:
-        print("\n" + "=" * 60)
-        print("提示")
-        print("=" * 60)
-        print("玩法策划还没到工位，主策划方案先存档。")
-        print("等玩法策划到位后，重新运行本主策划即可补上玩法设计。")
-    
-    print("\n✅ 主策划交稿完成！")
+        print(f"❌ 本轮未走通（{result['fail_reason']}）")
+        if result["error"]:
+            print(f"   原因: {result['error'][:200]}")
+        if result["lead_plan"]:
+            print("\n主策划方案摘要（已存档，待玩法策划补设计）")
+            print("=" * 60)
+            print(summarize_md(result["lead_plan"], show_sections=False))
+    print("=" * 60)
 
 if __name__ == "__main__":
     main()

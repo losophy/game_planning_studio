@@ -1,0 +1,11 @@
+{
+  "case_id": 4,
+  "complexity": "低",
+  "input": "做一个横版平台跳跃游戏",
+  "run_id": "5022602b-cf2d-497d-aab1-5c356134fa5c",
+  "task_id": "9c919cd3-8a23-4c3d-b297-85f60b07275b",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 84714.8
+}

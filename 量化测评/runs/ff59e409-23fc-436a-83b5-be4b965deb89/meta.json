@@ -1,0 +1,11 @@
+{
+  "case_id": 14,
+  "complexity": "高",
+  "input": "做一款回合制卡牌对战游戏",
+  "run_id": "ff59e409-23fc-436a-83b5-be4b965deb89",
+  "task_id": "448cdc7b-cab7-4a67-bb23-1c3d578c3261",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 89410.6
+}

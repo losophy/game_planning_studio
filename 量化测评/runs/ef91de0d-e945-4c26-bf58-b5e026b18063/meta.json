@@ -1,0 +1,11 @@
+{
+  "case_id": 18,
+  "complexity": "高",
+  "input": "做一款类狼人杀的社交推理游戏",
+  "run_id": "ef91de0d-e945-4c26-bf58-b5e026b18063",
+  "task_id": "6fc3e471-261f-4861-9a21-d4376bfd03a6",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 88009.9
+}

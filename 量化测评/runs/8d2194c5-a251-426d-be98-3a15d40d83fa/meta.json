@@ -1,0 +1,11 @@
+{
+  "case_id": 10,
+  "complexity": "中",
+  "input": "做一款模拟经营游戏，开一家餐厅",
+  "run_id": "8d2194c5-a251-426d-be98-3a15d40d83fa",
+  "task_id": "ddb2b9f0-8586-41ba-9a9e-fd2a34ad83e2",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 100170.7
+}

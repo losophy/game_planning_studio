@@ -1,0 +1,11 @@
+{
+  "case_id": 17,
+  "complexity": "高",
+  "input": "做一款多人派对小游戏合集",
+  "run_id": "b818069f-4eac-4dbf-a42b-e1f6d9be36b9",
+  "task_id": "7c460af6-984d-445b-aedc-cf06a9391b67",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 93683.3
+}

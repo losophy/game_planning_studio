@@ -1,0 +1,11 @@
+{
+  "case_id": 12,
+  "complexity": "中",
+  "input": "做一款回合制战棋游戏",
+  "run_id": "342ac7d5-51ed-46b1-b36e-3c229c34ee6c",
+  "task_id": "5fd472b3-1733-4b85-9d12-f41c887b332f",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 92534.0
+}

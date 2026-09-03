@@ -1,0 +1,11 @@
+{
+  "case_id": 15,
+  "complexity": "高",
+  "input": "做一款肉鸽（Roguelike）卡牌游戏",
+  "run_id": "debd0473-29b1-4af7-964c-d3f395f0ae10",
+  "task_id": "0c89c3c3-4edc-49af-a253-b338c9a112ee",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 90760.9
+}

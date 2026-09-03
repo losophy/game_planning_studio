@@ -1,0 +1,11 @@
+{
+  "case_id": 7,
+  "complexity": "中",
+  "input": "做一款放置类游戏，核心是离线收益",
+  "run_id": "db059622-7fa3-4bdd-9db2-3cbc712419fe",
+  "task_id": "902bdaa4-a223-457b-9715-1a07aac87368",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 83974.6
+}

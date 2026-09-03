@@ -1,0 +1,11 @@
+{
+  "case_id": 20,
+  "complexity": "高",
+  "input": "把 15 号游戏做成支持跨平台（PC+手机）的版本",
+  "run_id": "d5acced7-3d38-41e6-a0f6-72a266631584",
+  "task_id": "a4ef9335-70a9-4a4d-96d5-b548769c841e",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 83191.8
+}

@@ -9,6 +9,7 @@ from flask import Flask, request, jsonify
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
+from metrics import log_event, now_ms
 
 # ===================== 路径与环境 =====================
 def get_base_dir() -> Path:
@@ -44,7 +45,7 @@ def get_llm():
         model=os.getenv("LLM_MODEL", "deepseek-chat"),
         api_key=os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY"),
         base_url=os.getenv("LLM_BASE_URL", "https://api.deepseek.com"),
-        temperature=0.7,
+        temperature=float(os.getenv("LLM_TEMPERATURE", "0.4")),  # 玩法策划 Qwen3.6-Plus 推荐 0.3~0.5，取 0.4
     )
 
 # ===================== Skills加载 =====================
@@ -213,7 +214,7 @@ def make_task(task_id: str, state: str, message_text: str,
     }
 
 def handle_tasks_send(params: dict) -> dict:
-    """tasks/send：接收任务并执行玩法策划，返回 Task"""
+    """tasks/send：接收任务并执行玩法策划，返回 Task（带事件打点）"""
     task_id = params.get("id") or str(uuid.uuid4())
     message = params.get("message") or {}
 
@@ -230,7 +231,10 @@ def handle_tasks_send(params: dict) -> dict:
     print("\n收到主策划的方案")
     print("=" * 60)
 
-    # 先登记为 working
+    # 先登记为 working 并打点（t0 = 任务开始，含 LLM 生成全程）
+    t0 = now_ms()
+    log_event(agent="gameplay", run_id="", task_id=task_id,
+              event="task_start", state="working")
     TASK_STORE[task_id] = make_task(task_id, "working", "正在分析玩法设计...")
     try:
         # 运行玩法策划Agent
@@ -267,10 +271,16 @@ def handle_tasks_send(params: dict) -> dict:
             "metadata": {"output_file": str(output_file)}
         }]
         TASK_STORE[task_id] = task
+        log_event(agent="gameplay", run_id="", task_id=task_id,
+                  event="task_completed", state="completed",
+                  latency_ms=round(now_ms() - t0, 1))
         return task
 
     except Exception as e:
         print(f"\n❌ 处理方案时出错: {e}")
+        log_event(agent="gameplay", run_id="", task_id=task_id,
+                  event="task_failed", state="failed", error=str(e),
+                  latency_ms=round(now_ms() - t0, 1))
         task = make_task(task_id, "failed", f"处理方案时出错: {e}")
         TASK_STORE[task_id] = task
         return task

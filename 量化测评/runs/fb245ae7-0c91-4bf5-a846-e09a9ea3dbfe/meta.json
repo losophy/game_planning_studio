@@ -1,0 +1,11 @@
+{
+  "case_id": 6,
+  "complexity": "中",
+  "input": "做一款跑酷游戏，单手操作",
+  "run_id": "fb245ae7-0c91-4bf5-a846-e09a9ea3dbfe",
+  "task_id": "1f73f781-33df-4313-932b-24d6223b64ad",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 81384.8
+}

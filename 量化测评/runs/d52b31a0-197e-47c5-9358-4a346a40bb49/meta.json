@@ -1,0 +1,11 @@
+{
+  "case_id": 13,
+  "complexity": "中",
+  "input": "做一款音乐节奏游戏",
+  "run_id": "d52b31a0-197e-47c5-9358-4a346a40bb49",
+  "task_id": "6d280ac5-d882-457e-98da-ebc17d0050a7",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 89559.2
+}

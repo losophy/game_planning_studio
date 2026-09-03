@@ -1,0 +1,87 @@
+# game_planning_studio A2A 端到端测评测试集
+# 说明：input 为主策划收到的"老板一句话"；runner 逐条执行 execute_request。
+# 预期结构检查点（本地规则校验，零 LLM 成本）见下方 lead_sections / gameplay_sections。
+# 口径：只测 A2A 主链路；同机双进程；玩法策划必须在线；不做自动重试。
+meta:
+  title: "game_planning_studio A2A 端到端测评测试集"
+  created: "2026-09-03"
+  source: "量化测评/量化测评方法.md 附录 A"
+  case_count: 20
+  note: "与《量化测评方法.md》附录 A 一一对应；复杂度覆盖 低/中/高 梯度"
+
+# 结构检查：章节名包含下列任一关键字即视为命中
+lead_sections:
+  - "游戏概述"
+  - "核心定位"
+  - "系统框架"
+  - "差异化"
+  - "开发建议"
+
+gameplay_sections:
+  - "核心循环"
+  - ["战斗", "操作"]   # 战斗/操作机制：任一命中
+  - "成长"
+  - "数值"
+  - "玩法亮点"
+
+cases:
+  - id: 01
+    input: "我想做一个井字棋游戏"
+    complexity: 低
+  - id: 02
+    input: "做一个 2048 类数字合成小游戏"
+    complexity: 低
+  - id: 03
+    input: "做一款简单塔防游戏"
+    complexity: 低
+  - id: 04
+    input: "做一个横版平台跳跃游戏"
+    complexity: 低
+  - id: 05
+    input: "做一款三消休闲游戏"
+    complexity: 中
+  - id: 06
+    input: "做一款跑酷游戏，单手操作"
+    complexity: 中
+  - id: 07
+    input: "做一款放置类游戏，核心是离线收益"
+    complexity: 中
+  - id: 08
+    input: "做一个文字冒险游戏，分支剧情"
+    complexity: 中
+  - id: 09
+    input: "做一款解谜游戏，关卡制"
+    complexity: 中
+  - id: 10
+    input: "做一款模拟经营游戏，开一家餐厅"
+    complexity: 中
+  - id: 11
+    input: "做一款种田养成游戏"
+    complexity: 中
+  - id: 12
+    input: "做一款回合制战棋游戏"
+    complexity: 中
+  - id: 13
+    input: "做一款音乐节奏游戏"
+    complexity: 中
+  - id: 14
+    input: "做一款回合制卡牌对战游戏"
+    complexity: 高
+  - id: 15
+    input: "做一款肉鸽（Roguelike）卡牌游戏"
+    complexity: 高
+  - id: 16
+    input: "做一款二次元风格的卡牌 RPG 手游"
+    complexity: 高
+  - id: 17
+    input: "做一款多人派对小游戏合集"
+    complexity: 高
+  - id: 18
+    input: "做一款类狼人杀的社交推理游戏"
+    complexity: 高
+  - id: 19
+    input: "做一款 MUD 文字网游"
+    complexity: 高
+  - id: 20
+    input: "把 15 号游戏做成支持跨平台（PC+手机）的版本"
+    complexity: 高

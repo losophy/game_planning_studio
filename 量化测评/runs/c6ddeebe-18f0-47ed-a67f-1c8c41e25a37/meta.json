@@ -1,0 +1,11 @@
+{
+  "case_id": 11,
+  "complexity": "中",
+  "input": "做一款种田养成游戏",
+  "run_id": "c6ddeebe-18f0-47ed-a67f-1c8c41e25a37",
+  "task_id": "318fc2da-3236-4f4d-ab66-e656a71f8311",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 90078.8
+}

@@ -1,0 +1,11 @@
+{
+  "case_id": "09",
+  "complexity": "中",
+  "input": "做一款解谜游戏，关卡制",
+  "run_id": "204fb90b-547d-4dcf-bd74-bc68ded5eebb",
+  "task_id": "a0fd5957-6c1f-4987-b2df-2b25a3c25c54",
+  "ok": true,
+  "fail_reason": "",
+  "error": "",
+  "latency_ms": 81781.9
+}
